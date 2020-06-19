@@ -164,3 +164,7 @@ MESSAGE_TAGS = {
 }
 
 AUTH_USER_MODEL = 'account.User'
+
+STATICFILER_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
