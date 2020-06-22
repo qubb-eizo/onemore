@@ -25,7 +25,8 @@ urlpatterns = [
     path('', TemplateView.as_view(template_name='index.html'), name='index'),
     path('success/', TemplateView.as_view(template_name='success.html'), name='success'),
 
-    path('account/', include('account.urls'))
+    path('account/', include('account.urls')),
+    path('test/', include('testsuite.urls')),
 ]
 
 urlpatterns += \
