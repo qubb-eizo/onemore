@@ -1,10 +1,13 @@
 from django.urls import path
 
-from testsuite.views import LeaderBoardView, TestListView
+from testsuite.views import LeaderBoardView, TestListView, TestRunView, StartTestView
 
-app_name = 'testsuite'
+app_name = 'test'
 
 urlpatterns = [
-    path('list/', TestListView.as_view(), name='test_list'),
+    path('', TestListView.as_view(), name='test_list'),
+
     path('leader_board/', LeaderBoardView.as_view(), name='leader_list'),
+    path('<int:pk>/question/<int:seq_nr>', TestRunView.as_view(), name='testrun_step'),
+    path('<int:pk>/start/', StartTestView.as_view(), name='start'),
 ]
