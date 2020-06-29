@@ -24,7 +24,6 @@ class TestListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(object_list=None, **kwargs)
-        context['title'] = 'Test list'
         return context
 
 
@@ -33,7 +32,7 @@ class LeaderBoardView(LoginRequiredMixin, ListView):
     template_name = 'leader_list.html'
     context_object_name = 'leader_list'
     login_url = reverse_lazy('account:login')
-    paginate_by = 5
+    paginate_by = 10
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -41,17 +40,23 @@ class LeaderBoardView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(object_list=None, **kwargs)
-        context['title'] = 'Leader list'
         return context
 
 
 class TestRunView(View):
     PREFIX = 'answer_'
 
-    def get(self, request, pk, seq_nr):
-        question = Question.objects.filter(test__id=pk, number=seq_nr).first()
+    def get(self, request, pk):
+        if 'testresult' not in request.session:
+            return HttpResponse('ERROR!')
+
+        testresult_step = request.session.get('testresult_step', 1)
+        request.session['testresult_step'] = testresult_step
+
+        question = Question.objects.get(test__id=pk, number=testresult_step)
 
         answers = [answer.text for answer in question.answers.all()]
+
         return render(request=request,
                       template_name='test_run.html',
                       context={
@@ -60,9 +65,15 @@ class TestRunView(View):
                           'prefix': self.PREFIX
                       })
 
-    def post(self, request, pk, seq_nr):
+    def post(self, request, pk):
+        if 'testresult_step' not in request.session:
+            return HttpResponse('ERROR!')
+
+        testresult_step = request.session['testresult_step']
+
         test = Test.objects.get(pk=pk)
-        question = Question.objects.filter(test__id=pk, number=seq_nr).first()
+
+        question = Question.objects.get(test__id=pk, number=testresult_step)
 
         answers = Answers.objects.filter(
             question=question
@@ -75,12 +86,15 @@ class TestRunView(View):
 
         if not choices:
             messages.error(self.request, extra_tags='danger', message="Error: You should select at least 1 answer")
-            return redirect(reverse('test:testrun_step', kwargs={'pk': pk, 'seq_nr': seq_nr}))
+            return redirect(reverse('test:next', kwargs={'pk': pk}))
 
-        current_test_result = TestResult.objects.filter(
-            test=test,
-            user=request.user,
-            is_completed=False).last()
+        if len(choices) == len(answers):
+            messages.error(self.request, extra_tags='danger', message="Error: You can't select ALL answers")
+            return redirect(reverse('test:next', kwargs={'pk': pk}))
+
+        current_test_result = TestResult.objects.get(
+            id=request.session['testresult']
+        )
 
         for idx, answer in enumerate(answers, 1):
             value = choices.get(str(idx), False)
@@ -92,8 +106,13 @@ class TestRunView(View):
             )
 
         if question.number < test.questions_count():
-            return redirect(reverse('test:testrun_step', kwargs={'pk': pk, 'seq_nr': seq_nr + 1}))
+            current_test_result.is_new = False
+            current_test_result.save()
+            request.session['testresult_step'] = testresult_step + 1
+            return redirect(reverse('test:next', kwargs={'pk': pk}))
         else:
+            del request.session['testresult']
+            del request.session['testresult_step']
             current_test_result.finish()
             current_test_result.save()
             return render(
@@ -101,7 +120,7 @@ class TestRunView(View):
                 template_name='testrun_end.html',
                 context={
                     'test_result': current_test_result,
-                    'time_spent': datetime.datetime.utcnow() - current_test_result.datetime_run.replace(tzinfo=None)
+                    'time_spent': datetime.datetime.utcnow() - current_test_result.datetime_run.replace(tzinfo=None),
                 }
             )
 
@@ -110,10 +129,18 @@ class StartTestView(View):
 
     def get(self, request, pk):
         test = Test.objects.get(pk=pk)
-        test_result = TestResult.objects.create(
-            user=request.user,
-            test=test
-        )
+
+        test_result_id = request.session.get('testresult')
+
+        if test_result_id:
+            test_result = TestResult.objects.get(id=test_result_id)
+        else:
+            test_result = TestResult.objects.create(
+                user=request.user,
+                test=test
+            )
+
+        request.session['testresult'] = test_result.id
 
         return render(
             request=request,
