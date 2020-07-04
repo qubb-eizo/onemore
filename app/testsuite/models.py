@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 
 
 class Topic(models.Model):
@@ -37,19 +37,25 @@ class Test(models.Model):
 
     def last_run(self):
         last_run = self.test_result.order_by('-id').first()
-        if last_run:
-            return last_run.datetime_run
-        return ''
+        return last_run.datetime_run
+
+    def best_result(self):
+        best_res = self.test_result.order_by('-avr_score').first()
+        return best_res.avr_score
+
+    def num_of_runs(self):
+        num_of_runs = self.test_result.order_by('id').count()
+        return num_of_runs
 
 
 class Question(models.Model):
     MIN_LIMIT = 3
-    MAX_LIMIT = 6
+    MAX_LIMIT = 20
 
     test = models.ForeignKey(to=Test, related_name='questions', on_delete=models.CASCADE)
     number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(MAX_LIMIT)],
                                               null=True)
-    text = models.CharField(max_length=64)
+    text = models.CharField(max_length=1024)
     description = models.TextField(max_length=1024, null=True, blank=True)
 
     def __str__(self):
@@ -57,7 +63,7 @@ class Question(models.Model):
 
 
 class Answers(models.Model):
-    text = models.CharField(max_length=64)
+    text = models.CharField(max_length=1024)
     question = models.ForeignKey(to=Question, related_name='answers', on_delete=models.CASCADE)
     is_correct = models.BooleanField(default=False)
 
@@ -72,6 +78,7 @@ class TestResult(models.Model):
                                     validators=[MinValueValidator(0), MaxValueValidator(100)])
     datetime_run = models.DateTimeField(auto_now_add=True)
     is_completed = models.BooleanField(default=False)
+    is_new = models.BooleanField(default=True)
 
     def update_score(self):
         qs = self.test_result_details.values('question').annotate(
@@ -84,9 +91,19 @@ class TestResult(models.Model):
             for entry in qs
         )
 
+    def correct_answers_count(self):
+        correct_answer = self.test_result_details.values('question').\
+            annotate(num_answers=Count('question'), score=Sum('is_correct'))
+        return sum(entry['num_answers'] == int(entry['score']) for entry in correct_answer)
+
     def finish(self):
         self.update_score()
         self.is_completed = True
+
+    def percent_answers(self):
+        questions = self.test.questions_count()
+        answers = self.correct_answers_count()
+        return f'{answers} of {questions} - {(answers / questions) * 100:.2f}%'
 
 
 class TestResultDetails(models.Model):
@@ -98,3 +115,9 @@ class TestResultDetails(models.Model):
 
     def __str__(self):
         return f'Test Run: {self.test_result.id}, Question: {self.question.text}, Success: {self.is_correct}'
+
+
+class TestSale(models.Model):
+    store_id = models.PositiveSmallIntegerField()
+    sold_on = models.DateField(auto_now_add=True)
+    sum = models.DecimalField(max_digits=6, decimal_places=2)

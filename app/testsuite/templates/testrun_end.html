@@ -23,7 +23,7 @@
                     <tbody>
                       <tr>
                         <td>Correct answers</td>
-                        <td>7 of 9 (78%)</td>
+                        <td>{{ test_result.correct_answers_count }}</td>
                       </tr>
                       <tr>
                         <td>Avr score</td>
@@ -32,6 +32,10 @@
                       <tr>
                         <td>Time spent</td>
                         <td>{{ time_spent }}</td>
+                      </tr>
+                      <tr>
+                        <td>Percent of correct answers</td>
+                        <td>{{ test_result.percent_answers }}</td>
                       </tr>
                     </tbody>
                   </table>
