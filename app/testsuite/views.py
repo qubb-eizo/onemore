@@ -22,10 +22,6 @@ class TestListView(LoginRequiredMixin, ListView):
         qs = super().get_queryset()
         return qs
 
-    def get_context_data(self, *, object_list=None, **kwargs):
-        context = super().get_context_data(object_list=None, **kwargs)
-        return context
-
 
 class LeaderBoardView(LoginRequiredMixin, ListView):
     model = TestResult
@@ -37,10 +33,6 @@ class LeaderBoardView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs
-
-    def get_context_data(self, *, object_list=None, **kwargs):
-        context = super().get_context_data(object_list=None, **kwargs)
-        return context
 
 
 class TestRunView(View):

@@ -39,9 +39,9 @@ class Test(models.Model):
         last_run = self.test_result.order_by('-id').first()
         return last_run.datetime_run
 
-    def best_test(self):
-        best_test = self.test_result.order_by('-avr_score').first()
-        return best_test.avr_score
+    def best_result(self):
+        best_res = self.test_result.order_by('-avr_score').first()
+        return best_res.avr_score
 
     def num_of_runs(self):
         num_of_runs = self.test_result.order_by('id').count()
@@ -91,18 +91,19 @@ class TestResult(models.Model):
             for entry in qs
         )
 
-    def correct_answer(self):
+    def correct_answers_count(self):
         correct_answer = self.test_result_details.values('question').\
             annotate(num_answers=Count('question'), score=Sum('is_correct'))
         return sum(entry['num_answers'] == int(entry['score']) for entry in correct_answer)
 
-    def percent_correct_answer(self):
-        percent = self.test_result_details.values('question').\
-            annotate(num_answer=Count('question'), score=Sum('is_correct'))
-
     def finish(self):
         self.update_score()
         self.is_completed = True
+
+    def percent_answers(self):
+        questions = self.test.questions_count()
+        answers = self.correct_answers_count()
+        return f'{answers} of {questions} - {(answers / questions) * 100:.2f}%'
 
 
 class TestResultDetails(models.Model):
