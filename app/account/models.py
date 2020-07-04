@@ -9,9 +9,7 @@ class User(AbstractUser):
     tests_list_passed = models.PositiveIntegerField(null=True, blank=True)
 
     def update_score(self):
-        score = self.test_result.values('avr_score').\
-            annotate(points=Sum('avr_score'))
-        self.avr_score = sum(int(x['points']) for x in score)
+        self.avr_score = self.test_result.aggregate(points=Sum('avr_score'))
 
     def test_last_run(self):
         last_run = self.test_result.order_by('-id').first()
