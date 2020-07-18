@@ -2,6 +2,6 @@
 venv/
 *.pyc
 .git/ 
-app/app/settings_local.py
+settings_local.py
 *.env
 environment/

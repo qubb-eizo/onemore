@@ -97,3 +97,35 @@ class BaseFlowTest(TestCase):
             )
 
         assert 'START ANOTHER TEST ▶️' in response.content.decode()
+
+    def test_continue_button(self):
+        response = self.client.get(reverse('test:start', kwargs={'pk': PK}))
+        assert response.status_code == 200
+        assert 'START ▶️' in response.content.decode()
+
+        test_result = TestResult.objects.order_by('id').last()
+        test = Test.objects.get(pk=PK)
+        questions = test.questions.all()
+        url = reverse('test:next', kwargs={'pk': PK})
+
+        for idx, question in enumerate(questions, 1):
+            response = self.client.get(url)
+            assert response.status_code == 200
+            assert 'Submit' in response.content.decode()
+
+            correct_answers = {
+                f'answer_{idx}': 1
+                for idx, answer in enumerate(question.answers.all(), 1)
+                if answer.is_correct
+            }
+
+            response = self.client.post(
+                path=url, data=correct_answers
+            )
+
+            if test_result.is_completed:  # is_completed по дефолту False, значит тест не завершен
+                response = self.client.get(reverse('test:start', kwargs={'pk': PK}))
+                assert response.status_code == 200
+                assert 'CONTINUE ▶️' in response.content.decode()
+
+        assert 'START ANOTHER TEST ▶️' in response.content.decode()
