@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.test import TestCase
 from django.test import Client
 
-from testsuite.models import Test
+from testsuite.models import Test, TestResult
 
 PK = 1
 
@@ -41,5 +41,59 @@ class BaseFlowTest(TestCase):
                 self.assertRedirects(response, url)
             else:
                 assert response.status_code == 200
+
+        assert 'START ANOTHER TEST ▶️' in response.content.decode()
+
+    def test_success_passed(self):
+        response = self.client.get(reverse('test:start', kwargs={'pk': PK}))
+        assert response.status_code == 200
+        assert 'START ▶️' in response.content.decode()
+
+        test = Test.objects.get(pk=PK)
+        questions = test.questions.all()
+        url = reverse('test:next', kwargs={'pk': PK})
+
+        for idx, question in enumerate(questions, 1):
+            response = self.client.get(url)
+            assert response.status_code == 200
+            assert 'Submit' in response.content.decode()
+
+            correct_answers = {
+                f'answer_{idx}': 1
+                for idx, answer in enumerate(question.answers.all(), 1)
+                if answer.is_correct
+            }
+
+            response = self.client.post(
+                path=url, data=correct_answers
+            )
+
+        test_result = TestResult.objects.order_by('id').last()
+        assert 'START ANOTHER TEST ▶️' in response.content.decode()
+        self.assertEqual(test.questions_count(), float(test_result.avr_score))
+
+    def test_failed(self):
+        response = self.client.get(reverse('test:start', kwargs={'pk': PK}))
+        assert response.status_code == 200
+        assert 'START ▶️' in response.content.decode()
+
+        test = Test.objects.get(pk=PK)
+        questions = test.questions.all()
+        url = reverse('test:next', kwargs={'pk': PK})
+
+        for idx, question in enumerate(questions, 1):
+            response = self.client.get(url)
+            assert response.status_code == 200
+            assert 'Submit' in response.content.decode()
+
+            correct_answers = {
+                f'answer_{idx}': 0
+                for idx, answer in enumerate(question.answers.all(), 1)
+                if not answer.is_correct
+            }
+
+            response = self.client.post(
+                path=url, data=correct_answers
+            )
 
         assert 'START ANOTHER TEST ▶️' in response.content.decode()
